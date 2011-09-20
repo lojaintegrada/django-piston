@@ -10,6 +10,7 @@ from test_project.apps.testapp import signals
 class EntryHandler(BaseHandler):
     model = TestModel
     allowed_methods = ['GET', 'PUT', 'POST']
+    fields = ('test1', 'test2')
 
     def read(self, request, pk=None):
         signals.entry_request_started.send(sender=self, request=request)
@@ -95,3 +96,16 @@ class Issue58Handler(BaseHandler):
             return rc.CREATED
         else:
             super(Issue58Model, self).create(request)
+
+class FieldBlankHandler(BaseHandler):
+    model = TestModel
+    allowed_methods = ['GET',]
+    fields = ('id', 'test1', 'blank_field')
+
+    def read(self, request, pk=None):
+        if pk is not None:
+            ret =  TestModel.objects.get(pk=int(pk))
+            ret.blank_field = ''
+            return ret
+        paginator = Paginator(TestModel.objects.all(), 25)
+        return paginator.page(int(request.GET.get('page', 1))).object_list
