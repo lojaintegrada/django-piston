@@ -462,11 +462,13 @@ class Issue58ModelTests(MainTests):
         expected = """[
     {
         "read": true, 
-        "model": "t"
+        "model": "t", 
+        "id": 1
     }, 
     {
         "read": false, 
-        "model": "f"
+        "model": "f", 
+        "id": 2
     }
 ]"""
 
