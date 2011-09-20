@@ -407,14 +407,20 @@ class ListFieldsTest(MainTests):
     def test_multiple_items(self):
         expect = '''[
     {
+        "color": "green", 
+        "kind": "fruit", 
         "id": 1, 
         "variety": "apple"
     }, 
     {
+        "color": "orange", 
+        "kind": "vegetable", 
         "id": 2, 
         "variety": "carrot"
     }, 
     {
+        "color": "brown", 
+        "kind": "animal", 
         "id": 3, 
         "variety": "dog"
     }
