@@ -217,7 +217,7 @@ class Mimer(object):
             for mime in mimes:
                 if ctype.startswith(mime):
                     return loadee
-                    
+
     def content_type(self):
         """
         Returns the content type of the request in all cases where it is
@@ -225,11 +225,12 @@ class Mimer(object):
         """
         type_formencoded = "application/x-www-form-urlencoded"
 
-        ctype = self.request.META.get('CONTENT_TYPE', type_formencoded)
-        
+        # Fix for cases where CONTENT_TYPE == 'application/x-www-form-urlencoded; charset=UTF-8'
+        ctype = self.request.META.get('CONTENT_TYPE', type_formencoded).split(';')[0]
+
         if type_formencoded in ctype:
             return None
-        
+
         return ctype
 
     def translate(self):
@@ -240,7 +241,7 @@ class Mimer(object):
         key-value (and maybe just a list), the data will be placed on
         `request.data` instead, and the handler will have to read from
         there.
-        
+
         It will also set `request.content_type` so the handler has an easy
         way to tell what's going on. `request.content_type` will always be
         None for form-encoded and/or multipart form data (what your browser sends.)
