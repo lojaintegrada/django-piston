@@ -407,14 +407,20 @@ class ListFieldsTest(MainTests):
     def test_multiple_items(self):
         expect = '''[
     {
+        "color": "green", 
+        "kind": "fruit", 
         "id": 1, 
         "variety": "apple"
     }, 
     {
+        "color": "orange", 
+        "kind": "vegetable", 
         "id": 2, 
         "variety": "carrot"
     }, 
     {
+        "color": "brown", 
+        "kind": "animal", 
         "id": 3, 
         "variety": "dog"
     }
@@ -473,3 +479,18 @@ class Issue58ModelTests(MainTests):
         resp = self.client.post('/api/issue58.json', outgoing, content_type='application/json',
                                 HTTP_AUTHORIZATION=self.auth_string)
         self.assertEquals(resp.status_code, 201)
+
+class BlankFields(MainTests):
+
+    def init_delegate(self):
+        self.target_data = TestModel.objects.create()
+        self.target_data.save()
+    
+    def tearDown(self):
+        super(BlankFields, self).tearDown()
+        self.target_data.delete()
+
+
+    def test_blank_data_returning(self):
+        result = self.client.get('/api/field-blank/%s/'%self.target_data.pk).content
+        self.assertTrue('blank_field' in result, 'the field blank_field, must appear, even when is blank')

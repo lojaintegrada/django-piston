@@ -151,7 +151,8 @@ class Emitter(object):
             `exclude` on the handler (see `typemapper`.)
             """
             ret = { }
-            handler = self.in_typemapper(type(data), self.anonymous)
+            #handler = self.in_typemapper(type(data), self.anonymous)
+            handler = self.handler and self.handler.__class__ or self.in_typemapper(type(data), self.anonymous)
             get_absolute_uri = False
 
             if handler or fields:
@@ -165,7 +166,8 @@ class Emitter(object):
                     Fields was not specified, try to find teh correct
                     version in the typemapper we were sent.
                     """
-                    mapped = self.in_typemapper(type(data), self.anonymous)
+                    #mapped = self.in_typemapper(type(data), self.anonymous)
+                    mapped = self.handler and self.handler.__class__ or self.in_typemapper(type(data), self.anonymous)
                     get_fields = set(mapped.fields)
                     exclude_fields = set(mapped.exclude).difference(get_fields)
 
@@ -233,8 +235,9 @@ class Emitter(object):
                         ret[maybe_field] = _any(met_fields[maybe_field](data))
 
                     else:
-                        maybe = getattr(data, maybe_field, None)
-                        if maybe is not None:
+                        not_found = []
+                        maybe = getattr(data, maybe_field, not_found)
+                        if not (maybe is not_found):
                             if callable(maybe):
                                 if len(inspect.getargspec(maybe)[0]) <= 1:
                                     ret[maybe_field] = _any(maybe())

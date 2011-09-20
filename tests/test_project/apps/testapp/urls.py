@@ -2,7 +2,7 @@ from django.conf.urls.defaults import *
 from piston.resource import Resource
 from piston.authentication import HttpBasicAuthentication, HttpBasicSimple
 
-from test_project.apps.testapp.handlers import EntryHandler, ExpressiveHandler, AbstractHandler, EchoHandler, PlainOldObjectHandler, Issue58Handler, ListFieldsHandler
+from test_project.apps.testapp.handlers import EntryHandler, ExpressiveHandler, AbstractHandler, EchoHandler, PlainOldObjectHandler, Issue58Handler, ListFieldsHandler, FieldBlankHandler
 
 auth = HttpBasicAuthentication(realm='TestApplication')
 
@@ -13,6 +13,7 @@ echo = Resource(handler=EchoHandler)
 popo = Resource(handler=PlainOldObjectHandler)
 list_fields = Resource(handler=ListFieldsHandler)
 issue58 = Resource(handler=Issue58Handler)
+field_blank = Resource(handler=FieldBlankHandler)
 
 AUTHENTICATORS = [auth,]
 SIMPLE_USERS = (('admin', 'secr3t'),
@@ -53,6 +54,7 @@ urlpatterns = patterns('',
     url(r'^list_fields/(?P<id>.+)$', list_fields),
     
     url(r'^popo$', popo),
+    url(r'^field-blank/(?P<pk>\d+)/$', field_blank),
 )
 
 
