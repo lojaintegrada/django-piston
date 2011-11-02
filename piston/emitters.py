@@ -218,13 +218,7 @@ class Emitter(object):
                         inst = getattr(data, model, None)
 
                         if inst:
-                            if hasattr(inst, 'all'):
-                                ret[model] = _related(inst, fields)
-                            elif callable(inst):
-                                if len(inspect.getargspec(inst)[0]) == 1:
-                                    ret[model] = _any(inst(), fields)
-                            else:
-                                ret[model] = _model(inst, fields)
+                            ret[model] = _any(inst, fields)
 
                     elif maybe_field in met_fields:
                         # Overriding normal field which has a "resource method"
