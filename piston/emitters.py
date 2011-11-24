@@ -218,6 +218,8 @@ class Emitter(object):
                         inst = getattr(data, model, None)
 
                         if inst:
+                            if callable(inst):
+                                inst = inst()
                             ret[model] = _any(inst, fields)
 
                     elif maybe_field in met_fields:
