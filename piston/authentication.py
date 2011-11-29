@@ -157,7 +157,10 @@ def oauth_request_token(request):
     try:
         token = oauth_server.fetch_request_token(oauth_request)
 
-        response = HttpResponse(token.to_string())
+        if token:
+            response = HttpResponse(token.to_string())
+        else:
+            return INVALID_PARAMS_RESPONSE
     except oauth.OAuthError, err:
         response = send_oauth_error(err)
 
@@ -228,7 +231,10 @@ def oauth_access_token(request):
         
     try:
         token = oauth_server.fetch_access_token(oauth_request)
-        return HttpResponse(token.to_string())
+        if token:
+            return HttpResponse(token.to_string())
+        else:
+            return INVALID_PARAMS_RESPONSE
     except oauth.OAuthError, err:
         return send_oauth_error(err)
 
