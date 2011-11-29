@@ -33,6 +33,8 @@ from django.core import serializers
 from utils import HttpStatusCode, Mimer
 from validate_jsonp import is_valid_jsonp_callback_value
 
+NOT_FOUND = [] # just a marker to attributes not found
+
 try:
     import cStringIO as StringIO
 except ImportError:
@@ -229,18 +231,18 @@ class Emitter(object):
                         ret[maybe_field] = _any(met_fields[maybe_field](data))
 
                     else:
-                        maybe = getattr(data, maybe_field, None)
-                        if maybe is not None:
+                        maybe = getattr(data, maybe_field, NOT_FOUND)
+                        if maybe is NOT_FOUND:
+                            handler_f = getattr(handler or self.handler, maybe_field, None)
+
+                            if handler_f:
+                                ret[maybe_field] = _any(handler_f(data))
+                        else:
                             if callable(maybe):
                                 if len(inspect.getargspec(maybe)[0]) <= 1:
                                     ret[maybe_field] = _any(maybe())
                             else:
                                 ret[maybe_field] = _any(maybe)
-                        else:
-                            handler_f = getattr(handler or self.handler, maybe_field, None)
-
-                            if handler_f:
-                                ret[maybe_field] = _any(handler_f(data))
 
             else:
                 for f in data._meta.fields:
