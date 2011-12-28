@@ -98,13 +98,16 @@ class Issue58Handler(BaseHandler):
             super(Issue58Model, self).create(request)
 
 class FieldBlankHandler(BaseHandler):
-    model = TestModel
+    class BlankTestModel(TestModel):
+        class Meta:
+            proxy = True
+    model = BlankTestModel
     allowed_methods = ['GET',]
     fields = ('id', 'test1', 'blank_field')
 
     def read(self, request, pk=None):
         if pk is not None:
-            ret =  TestModel.objects.get(pk=int(pk))
+            ret = self.model.objects.get(pk=int(pk))
             ret.blank_field = ''
             return ret
         paginator = Paginator(TestModel.objects.all(), 25)
