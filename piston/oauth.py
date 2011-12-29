@@ -171,11 +171,13 @@ class OAuthRequest(object):
     http_method = HTTP_METHOD
     http_url = None
     version = VERSION
+    is_ssl = False
 
-    def __init__(self, http_method=HTTP_METHOD, http_url=None, parameters=None):
+    def __init__(self, http_method=HTTP_METHOD, http_url=None, parameters=None, is_ssl=False):
         self.http_method = http_method
         self.http_url = http_url
         self.parameters = parameters or {}
+        self.is_ssl = is_ssl
 
     def set_parameter(self, parameter, value):
         self.parameters[parameter] = value
@@ -263,7 +265,7 @@ class OAuthRequest(object):
         return signature_method.build_signature(self, consumer, token)
 
     def from_request(http_method, http_url, headers=None, parameters=None,
-            query_string=None):
+            query_string=None, is_ssl=False):
         """Combines multiple parameter sources."""
         if parameters is None:
             parameters = {}
@@ -293,7 +295,7 @@ class OAuthRequest(object):
         parameters.update(url_params)
 
         if parameters:
-            return OAuthRequest(http_method, http_url, parameters)
+            return OAuthRequest(http_method, http_url, parameters, is_ssl)
 
         return None
     from_request = staticmethod(from_request)
@@ -489,7 +491,9 @@ class OAuthServer(object):
     def _check_signature(self, oauth_request, consumer, token):
         timestamp, nonce = oauth_request._get_timestamp_nonce()
         self._check_timestamp(timestamp)
-        self._check_nonce(consumer, token, nonce)
+        # For ssl we just ignore the nonce for perfomance - see Redmine #1460 - Luciano Pacheco 
+        if not oauth_request.is_ssl:
+            self._check_nonce(consumer, token, nonce)
         signature_method = self._get_signature_method(oauth_request)
         try:
             signature = oauth_request.get_parameter('oauth_signature')

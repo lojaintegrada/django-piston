@@ -123,7 +123,8 @@ def initialize_server_request(request):
     oauth_request = oauth.OAuthRequest.from_request(
         request.method, request.build_absolute_uri(), 
         headers=request.META, parameters=params,
-        query_string=request.environ.get('QUERY_STRING', ''))
+        query_string=request.environ.get('QUERY_STRING', ''),
+        is_ssl=request.is_secure())
         
     if oauth_request:
         oauth_server = oauth.OAuthServer(oauth_datastore(oauth_request))

@@ -4,7 +4,7 @@ from django.utils import simplejson
 from django.conf import settings
 
 from piston import oauth
-from piston.models import Consumer, Token
+from piston.models import Consumer, Token, Nonce
 from piston.forms import OAuthAuthenticationForm
 
 try:
@@ -13,7 +13,7 @@ except ImportError:
     print "Can't run YAML testsuite"
     yaml = None
 
-import urllib, base64
+import urllib, base64, cgi
 
 from test_project.apps.testapp.models import TestModel, ExpressiveTestModel, Comment, InheritedModel, Issue58Model, ListFieldsModel
 from test_project.apps.testapp import signals
@@ -49,7 +49,21 @@ class OAuthTests(MainTests):
         super(OAuthTests, self).tearDown()
         self.consumer.delete()
 
-    def test_handshake(self):
+    def test_normal_handshake(self):
+        previous_nonce = Nonce.objects.count()
+        self.handshake()
+        final_nonce = Nonce.objects.count()
+        self.assertTrue(previous_nonce < final_nonce)
+
+    def test_https_handshake(self):
+        previous_nonce = Nonce.objects.count()
+
+        self.handshake(ssl=True)
+
+        final_nonce = Nonce.objects.count()
+        self.assertEqual(previous_nonce, final_nonce)
+
+    def handshake(self, ssl=False):
         '''Test the OAuth handshake procedure
         '''
         oaconsumer = oauth.OAuthConsumer(self.consumer.key, self.consumer.secret)
@@ -73,11 +87,11 @@ class OAuthTests(MainTests):
         request.sign_request(self.signature_method, oaconsumer, oatoken)
 
         # Request the login page
-# TODO: Parse the response to make sure all the fields exist
-#        response = self.client.get('/api/oauth/authorize', {
-#            'oauth_token': oatoken.key,
-#            'oauth_callback': 'http://printer.example.com/request_token_ready',
-#            })
+        # TODO: Parse the response to make sure all the fields exist
+        response = self.client.get('/api/oauth/authorize', {
+            'oauth_token': oatoken.key,
+            'oauth_callback': 'http://printer.example.com/request_token_ready',
+            })
 
         response = self.client.post('/api/oauth/authorize', {
             'oauth_token': oatoken.key,
@@ -86,21 +100,41 @@ class OAuthTests(MainTests):
             'authorize_access': 1,
             })
 
+        redirect_to = response['Location']
+        query_string = urllib.splitquery(redirect_to)[1]
+        data = dict(cgi.parse_qsl(query_string))
+        verifier = data['oauth_verifier']
+        returned_token = data['oauth_token']
+
         # Response should be a redirect...
         self.assertEqual(302, response.status_code)
-        self.failUnless(response['Location'].startswith("http://printer.example.com/request_token_ready?"))
-        self.failUnless(('oauth_token='+oatoken.key in response['Location']))
-        
-        # Actually we can't test this last part, since it's 1.0a.
-        # Obtain access token...
-#        request = oauth.OAuthRequest.from_consumer_and_token(oaconsumer, token=oatoken,
-#                http_url='http://testserver/api/oauth/access_token')
-#        request.sign_request(self.signature_method, oaconsumer, oatoken)
-#        response = self.client.get('/api/oauth/access_token', request.parameters)
+        self.failUnless(redirect_to.startswith("http://printer.example.com/request_token_ready?"))
+        self.assertEqual(oatoken.key, returned_token)
 
-#        oa_atoken = oauth.OAuthToken.from_string(response.content)
-#        atoken = Token.objects.get(key=oa_atoken.key, token_type=Token.ACCESS)
-#        self.assertEqual(atoken.secret, oa_atoken.secret)
+        #response = self.client.get(redirect_to)
+        
+        oatoken.set_verifier(verifier)
+
+        # Obtain access token...
+        protocol = 'http'
+        port = '80'
+        if ssl:
+            protocol = 'https'
+            port = '443'
+        request = oauth.OAuthRequest.from_consumer_and_token(oaconsumer, token=oatoken,
+                verifier=verifier,
+                http_url='%s://testserver:%s/api/oauth/access_token' % (protocol, port))
+        request.sign_request(self.signature_method, oaconsumer, oatoken)
+        extra = {}
+        if ssl:
+            extra['wsgi.url_scheme'] = 'https'
+            extra['SERVER_PORT'] = '443'
+        response = self.client.get('/api/oauth/access_token', request.parameters, **extra)
+
+        oa_atoken = oauth.OAuthToken.from_string(response.content)
+        atoken = Token.objects.get(key=oa_atoken.key, token_type=Token.ACCESS)
+        self.assertEqual(atoken.secret, oa_atoken.secret)
+
 
 class BasicAuthTest(MainTests):
 
