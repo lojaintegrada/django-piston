@@ -67,7 +67,7 @@ class Resource(object):
 
     def form_validation_response(self, e):
         """
-        Method to return form validation error information. 
+        Method to return form validation error information.
         You will probably want to override this in your own
         `Resource` subclass.
         """
@@ -131,6 +131,12 @@ class Resource(object):
         else:
             handler = actor
 
+        # Allow for emulated PUT requests -- http://backbonejs.org/#Sync-emulateHTTP
+        if 'HTTP_X_HTTP_METHOD_OVERRIDE' in request.META:
+            rm = request.META.get('HTTP_X_HTTP_METHOD_OVERRIDE')
+            if rm == "PUT":
+                request.PUT = request.POST
+
         # Translate nested datastructs into `request.data` here.
         if rm in ('POST', 'PUT'):
             try:
@@ -179,15 +185,15 @@ class Resource(object):
         status_code = 200
 
         # If we're looking at a response object which contains non-string
-        # content, then assume we should use the emitter to format that 
+        # content, then assume we should use the emitter to format that
         # content
         if isinstance(result, HttpResponse) and not result._is_string:
             status_code = result.status_code
             # Note: We can't use result.content here because that method attempts
-            # to convert the content into a string which we don't want. 
+            # to convert the content into a string which we don't want.
             # when _is_string is False _container is the raw data
             result = result._container
-     
+
         srl = emitter(result, typemapper, handler, fields, anonymous)
 
         try:
@@ -247,7 +253,7 @@ class Resource(object):
 
     def error_handler(self, e, request, meth, em_format):
         """
-        Override this method to add handling of errors customized for your 
+        Override this method to add handling of errors customized for your
         needs
         """
         if isinstance(e, FormValidationError):
@@ -275,8 +281,8 @@ class Resource(object):
 
         elif isinstance(e, HttpStatusCode):
             return e.response
- 
-        else: 
+
+        else:
             """
             On errors (like code errors), we'd like to be able to
             give crash reports to both admins and also the calling
