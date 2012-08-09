@@ -20,13 +20,14 @@ except NameError:
                 return True
         return False
 
-from django.db.models.query import QuerySet
+from django.db.models.query import QuerySet, RawQuerySet
 from django.db.models import Model, permalink
 from django.utils import simplejson
 from django.utils.xmlutils import SimplerXMLGenerator
 from django.utils.encoding import smart_unicode
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.core.serializers.json import DateTimeAwareJSONEncoder
+from django.conf import settings
 from django.http import HttpResponse
 from django.core import serializers
 
@@ -103,7 +104,7 @@ class Emitter(object):
             """
             ret = None
 
-            if isinstance(thing, QuerySet):
+            if isinstance(thing, (QuerySet, RawQuerySet)):
                 ret = _qs(thing, fields)
             elif isinstance(thing, (tuple, list, set)):
                 ret = _list(thing, fields)
@@ -152,17 +153,17 @@ class Emitter(object):
             Models. Will respect the `fields` and/or
             `exclude` on the handler (see `typemapper`.)
             """
-            ret = { }
+            ret = {}
             handler = self.in_typemapper(type(data), self.anonymous)
             get_absolute_uri = False
 
             if handler or fields:
                 v = lambda f: getattr(data, f.attname)
 
-                if handler:
-                    fields = getattr(handler, 'fields')    
-                
-                if not fields or hasattr(handler, 'fields'):
+                if handler and not fields:
+                    fields = getattr(handler, 'fields')
+
+                if not fields and hasattr(handler, 'fields'):
                     """
                     Fields was not specified, try to find teh correct
                     version in the typemapper we were sent.
@@ -177,7 +178,7 @@ class Emitter(object):
                     if not get_fields:
                         get_fields = set([ f.attname.replace("_id", "", 1)
                             for f in data._meta.fields + data._meta.virtual_fields])
-                    
+
                     if hasattr(mapped, 'extra_fields'):
                         get_fields.update(mapped.extra_fields)
 
@@ -386,7 +387,10 @@ class JSONEmitter(Emitter):
     """
     def render(self, request):
         cb = request.GET.get('callback', None)
-        seria = simplejson.dumps(self.construct(), cls=DateTimeAwareJSONEncoder, ensure_ascii=False, indent=4)
+        indent = None
+        if settings.DEBUG:
+            indent = 4
+        seria = simplejson.dumps(self.construct(), cls=DateTimeAwareJSONEncoder, ensure_ascii=False, indent=indent)
 
         # Callback
         if cb and is_valid_jsonp_callback_value(cb):

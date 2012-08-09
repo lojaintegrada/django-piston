@@ -6,7 +6,7 @@ from django.views.debug import ExceptionReporter
 from django.views.decorators.vary import vary_on_headers
 from django.conf import settings
 from django.core.mail import send_mail, EmailMessage
-from django.db.models.query import QuerySet
+from django.db.models.query import QuerySet, RawQuerySet
 from django.http import Http404
 
 from emitters import Emitter
@@ -175,7 +175,7 @@ class Resource(object):
             emitter, ct = Emitter.get(em_format)
             fields = handler.fields
 
-            if hasattr(handler, 'list_fields') and isinstance(result, (list, tuple, QuerySet)):
+            if hasattr(handler, 'list_fields') and isinstance(result, (list, tuple, QuerySet, RawQuerySet)):
                 fields = handler.list_fields
         except ValueError:
             result = rc.BAD_REQUEST
