@@ -1,5 +1,7 @@
 import binascii
+import logging
 
+import oauth2  # third party lib
 import oauth
 from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib.auth.models import User, AnonymousUser
@@ -13,6 +15,10 @@ from django.shortcuts import render_to_response
 from django.template import RequestContext
 
 from piston import forms
+from piston.models import Consumer
+
+logger = logging.getLogger(__name__)
+
 
 class NoAuthentication(object):
     """
@@ -26,7 +32,7 @@ class NoAuthentication(object):
 class HttpBasicAuthentication(object):
     """
     Basic HTTP authenticater. Synopsis:
-    
+
     Authentication handlers must implement two methods:
      - `is_authenticated`: Will be called when checking for
         authentication. Receives a `request` object, please
@@ -46,7 +52,7 @@ class HttpBasicAuthentication(object):
 
         if not auth_string:
             return False
-            
+
         try:
             (authmeth, auth) = auth_string.split(" ", 1)
 
@@ -57,12 +63,12 @@ class HttpBasicAuthentication(object):
             (username, password) = auth.split(':', 1)
         except (ValueError, binascii.Error):
             return False
-        
+
         request.user = self.auth_func(username=username, password=password) \
             or AnonymousUser()
-                
+
         return not request.user in (False, None, AnonymousUser())
-        
+
     def challenge(self):
         resp = HttpResponse("Authorization Required")
         resp['WWW-Authenticate'] = 'Basic realm="%s"' % self.realm
@@ -78,7 +84,7 @@ class HttpBasicSimple(HttpBasicAuthentication):
         self.password = password
 
         super(HttpBasicSimple, self).__init__(auth_func=self.hash, realm=realm)
-    
+
     def hash(self, username, password):
         if username == self.user.username and password == self.password:
             return self.user
@@ -111,7 +117,7 @@ def initialize_server_request(request):
     """
     Shortcut for initialization.
     """
-    if request.method in ('POST', 'PUT'): 
+    if request.method in ('POST', 'PUT'):
         params = dict(request.REQUEST.items())
     else:
         params = { }
@@ -121,18 +127,18 @@ def initialize_server_request(request):
     request.META['Authorization'] = request.META.get('HTTP_AUTHORIZATION', '')
 
     oauth_request = oauth.OAuthRequest.from_request(
-        request.method, request.build_absolute_uri(), 
+        request.method, request.build_absolute_uri(),
         headers=request.META, parameters=params,
         query_string=request.environ.get('QUERY_STRING', ''),
         is_ssl=request.is_secure())
-        
+
     if oauth_request:
         oauth_server = oauth.OAuthServer(oauth_datastore(oauth_request))
         oauth_server.add_signature_method(oauth.OAuthSignatureMethod_PLAINTEXT())
         oauth_server.add_signature_method(oauth.OAuthSignatureMethod_HMAC_SHA1())
     else:
         oauth_server = None
-        
+
     return oauth_server, oauth_request
 
 def send_oauth_error(err=None):
@@ -152,7 +158,7 @@ def send_oauth_error(err=None):
 
 def oauth_request_token(request):
     oauth_server, oauth_request = initialize_server_request(request)
-    
+
     if oauth_server is None:
         return INVALID_PARAMS_RESPONSE
     try:
@@ -179,20 +185,20 @@ def oauth_auth_view(request, token, callback, params):
 @login_required
 def oauth_user_auth(request):
     oauth_server, oauth_request = initialize_server_request(request)
-    
+
     if oauth_request is None:
         return INVALID_PARAMS_RESPONSE
-        
+
     try:
         token = oauth_server.fetch_request_token(oauth_request)
     except oauth.OAuthError, err:
         return send_oauth_error(err)
-        
+
     try:
         callback = oauth_server.get_callback(oauth_request)
     except:
         callback = None
-    
+
     if request.method == "GET":
         params = oauth_request.get_normalized_parameters()
 
@@ -210,26 +216,26 @@ def oauth_user_auth(request):
             else:
                 args = '?error=%s' % 'Access not granted by user.'
                 print "FORM ERROR", form.errors
-            
+
             if not callback:
                 callback = getattr(settings, 'OAUTH_CALLBACK_VIEW')
                 return get_callable(callback)(request, token)
-                
+
             response = HttpResponseRedirect(callback+args)
-                
+
         except oauth.OAuthError, err:
             response = send_oauth_error(err)
     else:
         response = HttpResponse('Action not allowed.')
-            
+
     return response
 
 def oauth_access_token(request):
     oauth_server, oauth_request = initialize_server_request(request)
-    
+
     if oauth_request is None:
         return INVALID_PARAMS_RESPONSE
-        
+
     try:
         token = oauth_server.fetch_access_token(oauth_request)
         if token:
@@ -240,7 +246,7 @@ def oauth_access_token(request):
         return send_oauth_error(err)
 
 INVALID_PARAMS_RESPONSE = send_oauth_error(oauth.OAuthError('Invalid request parameters.'))
-                
+
 class OAuthAuthentication(object):
     """
     OAuth authentication. Based on work by Leah Culver.
@@ -248,12 +254,12 @@ class OAuthAuthentication(object):
     def __init__(self, realm='API'):
         self.realm = realm
         self.builder = oauth.build_authenticate_header
-    
+
     def is_authenticated(self, request):
         """
         Checks whether a means of specifying authentication
         is provided, and if so, if it is a valid token.
-        
+
         Read the documentation on `HttpBasicAuthentication`
         for more information about what goes on here.
         """
@@ -269,14 +275,14 @@ class OAuthAuthentication(object):
                 request.consumer = consumer
                 request.throttle_extra = token.consumer.id
                 return True
-            
+
         return False
-        
+
     def challenge(self):
         """
         Returns a 401 response with a small bit on
         what OAuth is, and where to learn more about it.
-        
+
         When this was written, browsers did not understand
         OAuth authentication on the browser side, and hence
         the helpful template we render. Maybe some day in the
@@ -296,7 +302,7 @@ class OAuthAuthentication(object):
         response.content = tmpl
 
         return response
-        
+
     @staticmethod
     def is_valid_request(request):
         """
@@ -308,16 +314,97 @@ class OAuthAuthentication(object):
         must_have = [ 'oauth_'+s for s in [
             'consumer_key', 'token', 'signature',
             'signature_method', 'timestamp', 'nonce' ] ]
-        
+
         is_in = lambda l: all([ (p in l) for p in must_have ])
 
         auth_params = request.META.get("HTTP_AUTHORIZATION", "")
         req_params = request.REQUEST
-             
+
         return is_in(auth_params) or is_in(req_params)
-        
+
     @staticmethod
     def validate_token(request, check_timestamp=True, check_nonce=True):
         oauth_server, oauth_request = initialize_server_request(request)
         return oauth_server.verify_request(oauth_request)
+
+
+class HttpResponseUnauthorized(HttpResponse):
+    status_code = 401
+
+
+class OAuth2LeggedAuthentication(object):
+    """
+    Two-leggeed OAuth authentication.
+
+    Based on:
+
+    piston.authentication.OAuthAuthentication
+    http://philipsoutham.com/post/2172924723/two-legged-oauth-in-python
+    https://github.com/simplegeo/python-oauth2/blob/master/oauth2/__init__.py
+    http://status.smugmug.com/documentation/examples
+    http://stackoverflow.com/questions/3587454/oauth-posting-json
+    http://oauth.net/core/1.0/#anchor14
+    http://sites.google.com/site/oauthgoog/2leggedoauth/2opensocialrestapi
+
+    """
+
+    oauth_server = oauth2.Server(signature_methods={
+            # Supported signature methods
+            'HMAC-SHA1': oauth2.SignatureMethod_HMAC_SHA1(),
+            #'PLAINTEXT': oauth2.SignatureMethod_PLAINTEXT(),
+        })
+
+    def __init__(self, realm='API'):
+        self.realm = realm
+        #self.builder = oauth.build_authenticate_header
+
+    def is_authenticated(self, request):
+        """
+        Checks whether the required parameters are either in
+        the http-authorization header sent by some clients,
+        which is by the way the preferred method according to
+        OAuth spec, but otherwise fall back to `GET` and `POST`.
+
+        Checks whether a means of specifying authentication
+        is provided, and if so, if it is a valid token.
+
+        If authenticate successful, the user attribute on request
+        is set.
+        """
+        auth_header = request.META
+        if 'HTTP_AUTHORIZATION' in auth_header and not 'Authorization' in auth_header:
+            auth_header['Authorization'] = auth_header['HTTP_AUTHORIZATION']
+
+        req = oauth2.Request.from_request(request.method,
+                                          request.build_absolute_uri(request.path),
+                                          auth_header, dict(request.REQUEST))
+        if not req:
+            return False
+
+        try:
+            consumer = Consumer.objects.get(key=req.get('oauth_consumer_key'))
+        except Consumer.DoesNotExist:
+            msg = 'OAuth2Legged failed to find the Consumer with key %s' % req.get('oauth_consumer_key')
+            logger.error(msg)
+            return False
+
+        try:
+            self.oauth_server.verify_request(req, consumer, None)
+        except oauth2.Error, e:
+            msg = 'OAuth2Legged failed verify signed request for consumer(key=%s, secret=%s) error: %s' % (consumer.key, consumer.secret, e)
+            logger.error(msg)
+            return False
+        request.user = consumer.user
+        return True
+
+    def challenge(self):
+        """
+        Returns a 401 response with a small bit on
+
+        As as two-legged auth doesn't have the "Human" part,
+        Is just a 401 (Unauthorized) response.
+        """
+        return HttpResponseUnauthorized()
+
+
 
