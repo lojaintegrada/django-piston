@@ -73,7 +73,7 @@ class Resource(object):
         `Resource` subclass.
         """
         resp = rc.BAD_REQUEST
-        resp.write(' ' + unicode(e.form.errors))
+        resp.write(u' ' + unicode(e.form.errors))
         return resp
 
     @property
@@ -228,9 +228,9 @@ class Resource(object):
         if not isinstance(result, HttpResponse):
             return False
         elif django.VERSION >= (1, 4):
-            return not result._base_content_is_iter
+            return result._base_content_is_iter
         else:
-            return result._is_string if hasattr(result, '_is_string') else False
+            return not result._is_string
 
     @staticmethod
     def cleanup_request(request):
