@@ -274,23 +274,6 @@ class Resource(object):
         if isinstance(e, FormValidationError):
             return self.form_validation_response(e)
 
-        elif isinstance(e, TypeError):
-            result = rc.BAD_REQUEST
-            hm = HandlerMethod(meth)
-            sig = hm.signature
-
-            msg = 'Method signature does not match.\n\n'
-
-            if sig:
-                msg += 'Signature should be: %s' % sig
-            else:
-                msg += 'Resource does not expect any parameters.'
-
-            if self.display_errors:
-                msg += '\n\nException was: %s' % str(e)
-
-            result.content = format_error(msg)
-            return result
         elif isinstance(e, Http404):
             return rc.NOT_FOUND
 
