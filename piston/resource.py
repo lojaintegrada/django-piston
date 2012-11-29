@@ -1,13 +1,13 @@
-import sys, inspect
+import sys
 
 from django.http import (HttpResponse, Http404, HttpResponseNotAllowed,
-    HttpResponseForbidden, HttpResponseServerError)
+    HttpResponseServerError)
 from django.views.debug import ExceptionReporter
 from django.views.decorators.vary import vary_on_headers
 from django.conf import settings
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import EmailMessage
 from django.db.models.query import QuerySet, RawQuerySet
-from django.http import Http404
+import django
 
 from emitters import Emitter
 from handler import typemapper
@@ -18,6 +18,7 @@ from utils import rc, format_error, translate_mime, MimerDataException
 
 CHALLENGE = object()
 
+
 class Resource(object):
     """
     Resource. Create one for your URL mappings, just
@@ -26,12 +27,12 @@ class Resource(object):
     is an authentication handler. If not specified,
     `NoAuthentication` will be used by default.
     """
-    callmap = { 'GET': 'read', 'POST': 'create',
-                'PUT': 'update', 'DELETE': 'delete' }
+    callmap = {'GET': 'read', 'POST': 'create',
+                'PUT': 'update', 'DELETE': 'delete'}
 
     def __init__(self, handler, authentication=None):
         if not callable(handler):
-            raise AttributeError, "Handler not callable."
+            raise AttributeError("Handler not callable.")
 
         self.handler = handler()
         self.csrf_exempt = getattr(self.handler, 'csrf_exempt', True)
@@ -72,7 +73,7 @@ class Resource(object):
         `Resource` subclass.
         """
         resp = rc.BAD_REQUEST
-        resp.write(' '+str(e.form.errors))
+        resp.write(' ' + unicode(e.form.errors))
         return resp
 
     @property
@@ -187,11 +188,13 @@ class Resource(object):
         # If we're looking at a response object which contains non-string
         # content, then assume we should use the emitter to format that
         # content
-        if isinstance(result, HttpResponse) and hasattr(result, '_is_string') and not result._is_string:
+        if self._use_emitter(result):
             status_code = result.status_code
-            # Note: We can't use result.content here because that method attempts
-            # to convert the content into a string which we don't want.
-            # when _is_string is False _container is the raw data
+            # Note: We can't use result.content here because that
+            # method attempts to convert the content into a string
+            # which we don't want.  when
+            # _is_string/_base_content_is_iter is False _container is
+            # the raw data
             result = result._container
 
         srl = emitter(result, typemapper, handler, fields, anonymous)
@@ -203,8 +206,10 @@ class Resource(object):
             before sending it to the client. Won't matter for
             smaller datasets, but larger will have an impact.
             """
-            if self.stream: stream = srl.stream_render(request)
-            else: stream = srl.render(request)
+            if self.stream:
+                stream = srl.stream_render(request)
+            else:
+                stream = srl.render(request)
 
             if not isinstance(stream, HttpResponse):
                 resp = HttpResponse(stream, mimetype=ct, status=status_code)
@@ -218,15 +223,25 @@ class Resource(object):
             return e.response
 
     @staticmethod
+    def _use_emitter(result):
+        """ True if result is a HttpResponse and contains non-string content. """
+        if not isinstance(result, HttpResponse):
+            return False
+        elif django.VERSION >= (1, 4):
+            return not result._base_content_is_iter
+        else:
+            return result._is_string if hasattr(result, '_is_string') else False
+
+    @staticmethod
     def cleanup_request(request):
         """
         Removes `oauth_` keys from various dicts on the
         request object, and returns the sanitized version.
         """
         for method_type in ('GET', 'PUT', 'POST', 'DELETE'):
-            block = getattr(request, method_type, { })
+            block = getattr(request, method_type, {})
 
-            if True in [ k.startswith("oauth_") for k in block.keys() ]:
+            if True in [k.startswith("oauth_") for k in block.keys()]:
                 sanitized = block.copy()
 
                 for k in sanitized.keys():

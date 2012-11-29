@@ -1,7 +1,6 @@
 import time
 import django
-from django.http import HttpResponseNotAllowed, HttpResponseForbidden, HttpResponse, HttpResponseBadRequest
-from django.core.urlresolvers import reverse
+from django.http import HttpResponse
 from django.core.cache import cache
 from django import get_version as django_version
 from django.core.mail import send_mail, mail_admins
@@ -11,32 +10,34 @@ from django.template import loader, TemplateDoesNotExist
 from django.contrib.sites.models import Site
 from decorator import decorator
 
-from datetime import datetime, timedelta
 
 __version__ = '0.2.5.8'
 
+
 def get_version():
     return __version__
+
 
 def format_error(error):
     return u"Piston/%s (Django %s) crash report:\n\n%s" % \
         (get_version(), django_version(), error)
 
+
 class rc_factory(object):
     """
     Status codes.
     """
-    CODES = dict(ALL_OK = ('OK', 200),
-                 CREATED = ('Created', 201),
-                 DELETED = ('', 204), # 204 says "Don't send a body!"
-                 BAD_REQUEST = ('Bad Request', 400),
-                 FORBIDDEN = ('Forbidden', 401),
-                 NOT_FOUND = ('Not Found', 404),
-                 DUPLICATE_ENTRY = ('Conflict/Duplicate', 409),
-                 NOT_HERE = ('Gone', 410),
-                 INTERNAL_ERROR = ('Internal Error', 500),
-                 NOT_IMPLEMENTED = ('Not Implemented', 501),
-                 THROTTLED = ('Throttled', 503))
+    CODES = dict(ALL_OK=('OK', 200),
+                 CREATED=('Created', 201),
+                 DELETED=('', 204),  # 204 says "Don't send a body!"
+                 BAD_REQUEST=('Bad Request', 400),
+                 FORBIDDEN=('Forbidden', 401),
+                 NOT_FOUND=('Not Found', 404),
+                 DUPLICATE_ENTRY=('Conflict/Duplicate', 409),
+                 NOT_HERE=('Gone', 410),
+                 INTERNAL_ERROR=('Internal Error', 500),
+                 NOT_IMPLEMENTED=('Not Implemented', 501),
+                 THROTTLED=('Throttled', 503))
 
     def __getattr__(self, attr):
         """
@@ -57,18 +58,25 @@ class rc_factory(object):
             """
             def _set_content(self, content):
                 """
-                Set the _container and _is_string properties based on the
-                type of the value parameter. This logic is in the construtor
-                for HttpResponse, but doesn't get repeated when setting
-                HttpResponse.content although this bug report (feature request)
-                suggests that it should: http://code.djangoproject.com/ticket/9403
+                Set the _container and _is_string /
+                _base_content_is_iter properties based on the type of
+                the value parameter. This logic is in the construtor
+                for HttpResponse, but doesn't get repeated when
+                setting HttpResponse.content although this bug report
+                (feature request) suggests that it should:
+                http://code.djangoproject.com/ticket/9403
                 """
+                is_string = False
                 if not isinstance(content, basestring) and hasattr(content, '__iter__'):
                     self._container = content
-                    self._is_string = False
                 else:
                     self._container = [content]
-                    self._is_string = True
+                    is_string = True
+
+                if django.VERSION >= (1, 4):
+                    self._base_content_is_iter = not is_string
+                else:
+                    self._is_string = is_string
 
             content = property(HttpResponse._get_content, _set_content)
 
