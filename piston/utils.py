@@ -50,39 +50,40 @@ class rc_factory(object):
         except TypeError:
             raise AttributeError(attr)
 
-        class HttpResponseWrapper(HttpResponse):
-            """
-            Wrap HttpResponse and make sure that the internal _is_string
-            flag is updated when the _set_content method (via the content
-            property) is called
-            """
-            def _set_content(self, content):
+        if django.VERSION < (1, 4):
+            class HttpResponseWrapper(HttpResponse):
                 """
-                Set the _container and _is_string /
-                _base_content_is_iter properties based on the type of
-                the value parameter. This logic is in the construtor
-                for HttpResponse, but doesn't get repeated when
-                setting HttpResponse.content although this bug report
-                (feature request) suggests that it should:
-                http://code.djangoproject.com/ticket/9403
+                Wrap HttpResponse and make sure that the internal _is_string
+                flag is updated when the _set_content method (via the content
+                property) is called
                 """
-                is_string = False
-                if not isinstance(content, basestring) and hasattr(content, '__iter__'):
-                    self._container = content
-                else:
-                    self._container = [content]
-                    is_string = True
+                def _set_content(self, content):
+                    """
+                    Set the _container and _is_string /
+                    _base_content_is_iter properties based on the type of
+                    the value parameter. This logic is in the construtor
+                    for HttpResponse, but doesn't get repeated when
+                    setting HttpResponse.content although this bug report
+                    (feature request) suggests that it should:
+                    http://code.djangoproject.com/ticket/9403
+                    """
+                    is_string = False
+                    if not isinstance(content, basestring) and hasattr(content, '__iter__'):
+                        self._container = content
+                    else:
+                        self._container = [content]
+                        is_string = True
 
-                if django.VERSION >= (1, 4):
-                    self._base_content_is_iter = not is_string
-                else:
-                    self._is_string = is_string
+                        self._is_string = is_string
 
-            content = property(HttpResponse._get_content, _set_content)
+                content = property(HttpResponse._get_content, _set_content)
 
-        return HttpResponseWrapper(r, content_type='text/plain', status=c)
+            return HttpResponseWrapper(r, content_type='text/plain', status=c)
+
+        return HttpResponse(r, content_type='text/plain', status=c)
 
 rc = rc_factory()
+
 
 class FormValidationError(Exception):
     def __init__(self, form):
