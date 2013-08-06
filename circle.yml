@@ -1,6 +1,5 @@
 test:
   override:
-    - cd tests
-    - python bootstrap.py
-    - bin/buildout
-    - bin/test-1.3
+    - cd tests && python bootstrap.py
+    - cd tests && bin/buildout
+    - cd tests && bin/test-1.3
