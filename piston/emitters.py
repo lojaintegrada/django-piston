@@ -55,6 +55,14 @@ try:
 except ImportError:
     import pickle
 
+
+def public_attrs(obj):
+    ''' Returns all non private/protected attributes/methods from object.
+    Basically it filter the result of `dir`
+    '''
+    return [attr for attr in dir(obj) if not attr.startswith('_')]
+
+
 # Allow people to change the reverser (default `permalink`).
 reverser = permalink
 
@@ -258,8 +266,8 @@ class Emitter(object):
                 for f in data._meta.fields:
                     ret[f.attname] = _any(getattr(data, f.attname))
 
-                fields = dir(data.__class__) + ret.keys()
-                add_ons = [k for k in dir(data) if k not in fields]
+                fields = public_attrs(data.__class__) + ret.keys()
+                add_ons = [k for k in public_attrs(data) if k not in fields]
 
                 for k in add_ons:
                     ret[k] = _any(getattr(data, k))
