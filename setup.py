@@ -10,7 +10,7 @@ except ImportError:
 
 setup(
     name="django-piston",
-    version="0.2.5.12",
+    version="0.2.5.13",
     url='http://bitbucket.org/jespern/django-piston/wiki/Home',
     download_url='http://bitbucket.org/jespern/django-piston/downloads/',
     license='BSD',
@@ -29,5 +29,9 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
+    ],
+    install_requires=[
+        'httplib2==0.9.1',
+        'oauth2==1.5.211',
     ]
 )
